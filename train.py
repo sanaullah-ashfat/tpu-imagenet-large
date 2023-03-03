@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse
 from typing import Tuple
 
@@ -58,7 +57,7 @@ def main():
     args = parser.parse_args()
 
     strategy, tpu = get_strategy()
-    setup_policy(xla_accelerate=args.xla, mixed_precision=args.mixed, tpu=tpu)
+    # setup_policy(xla_accelerate=args.xla, mixed_precision=args.mixed, tpu=tpu)
 
     image_size = (args.image_size, args.image_size)
     batch_size = args.batch_size * strategy.num_replicas_in_sync
@@ -252,6 +251,14 @@ def conv_layer(input_data, F1):
 
 
 def build_model(strategy):
+
+    try: # detect TPUs
+        tpu = tf.distribute.cluster_resolver.TPUClusterResolver.connect() # TPU detection
+        strategy = tf.distribute.TPUStrategy(tpu)
+    except ValueError: # detect GPUs
+        strategy = tf.distribute.MirroredStrategy() # for GPU or multi-GPU machines
+
+    print("Number of accelerators: ", strategy.num_replicas_in_sync)
     act = "elu"
     init = "he_uniform"
     with strategy.scope():
@@ -446,16 +453,16 @@ def get_strategy():
     return strategy, tpu
 
 
-def setup_policy(mixed_precision: bool, xla_accelerate: bool, tpu: bool):
-    if mixed_precision:
-        policy = tf.keras.mixed_precision.experimental.Policy(
-            'mixed_bfloat16' if tpu else 'mixed_float16')
-        tf.keras.mixed_precision.experimental.set_policy(policy)
-        print(f'Mixed precision enabled: {policy}')
+# def setup_policy(mixed_precision: bool, xla_accelerate: bool, tpu: bool):
+#     if mixed_precision:
+#         policy = tf.keras.mixed_precision.experimental.Policy(
+#             'mixed_bfloat16' if tpu else 'mixed_float16')
+#         tf.keras.mixed_precision.experimental.set_policy(policy)
+#         print(f'Mixed precision enabled: {policy}')
 
-    if xla_accelerate:
-        tf.config.optimizer.set_jit(True)
-        print('XLA enabled')
+#     if xla_accelerate:
+#         tf.config.optimizer.set_jit(True)
+#         print('XLA enabled')
 
 
 if __name__ == '__main__':
